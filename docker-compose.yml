@@ -1,0 +1,15 @@
+# Convenience wrapper. Set IMAGE (and optionally IMAGE_DIR / PORT), then:
+#   IMAGE=rpi-image.img.xz docker compose up
+#
+# The image directory is mounted read-only at /data and the filename is passed
+# to serve-image.js as its positional argument.
+services:
+  reflasher:
+    build: .
+    image: reflasher
+    init: true                       # tini as PID 1 so Ctrl-C / `stop` are clean
+    ports:
+      - "${PORT:-8080}:8080"         # host:container — Pis curl the host port
+    volumes:
+      - "${IMAGE_DIR:-.}:/data:ro"   # directory holding your .img.xz
+    command: ["${IMAGE:?set IMAGE=<file>.img.xz}"]

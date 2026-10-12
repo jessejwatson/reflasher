@@ -1,0 +1,14 @@
+# Keep the build context tiny — only serve-image.js and reflash.sh are copied.
+# OS images can be gigabytes; never send them to the daemon or bake them in.
+*.img
+*.img.xz
+*.bak
+
+.git
+.gitignore
+.DS_Store
+
+README.md
+Dockerfile
+.dockerignore
+docker-compose.yml
