@@ -37,18 +37,19 @@ done
 echo "All tools staged OK."
 
 # the final stage, run from RAM after the pivot. Once the card is written it
-# kills sshd so the SSH connection closes cleanly (the client exits right away
-# instead of hanging until it times out), then reboots.
+# exits with the write's status and reboots a few seconds later from a
+# detached process, so the SSH session ends normally and the client gets a
+# real exit code (0 on success) instead of hanging or reporting 255.
 cat > "$R/flash.sh" <<'EOS'
+set -o pipefail
 curl -fsSL "$1" | xz -dc | dd of=/dev/mmcblk0 bs=4M conv=fsync status=progress
+rc=$?
 sync
-echo ">>> DONE — rebooting <<<"
-for p in /proc/[0-9]*; do
-  read -r c 2>/dev/null < "$p/comm" || continue
-  case "$c" in sshd*) kill "${p#/proc/}" 2>/dev/null ;; esac
-done
-sleep 2   # let the TCP close reach the client before the hard reboot
-echo b > /proc/sysrq-trigger
+if [ "$rc" = 0 ]; then echo ">>> DONE — rebooting <<<"
+else echo "!! write failed (exit $rc) — rebooting anyway"; fi
+# fully detached (no inherited fds) so sshd can close the session before the reboot
+setsid sh -c 'sleep 3; echo b > /proc/sysrq-trigger' < /dev/null > /dev/null 2>&1 &
+exit "$rc"
 EOS
 
 BASH="$(command -v bash)"
@@ -61,5 +62,5 @@ exec chroot . "$BASH" -c '
   umount -l /oldroot
   echo 1 > /proc/sys/kernel/sysrq
   echo ">>> STREAMING TO CARD — do not power off <<<"
-  setsid sh /flash.sh "'"$IMG_URL"'" < /dev/null
+  setsid bash /flash.sh "'"$IMG_URL"'" < /dev/null
 '
