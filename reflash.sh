@@ -28,13 +28,28 @@ copy_with_libs() {
   done
 }
 # full set — includes the binaries used INSIDE the pivot (chroot/mount/umount/setsid)
-for b in bash sh dd cat sync xz curl chroot mount umount setsid; do copy_with_libs "$b"; done
+for b in bash sh dd cat sync xz curl chroot mount umount setsid sleep; do copy_with_libs "$b"; done
 
 # preflight: confirm every binary actually landed in the RAM root before we pivot
-for b in bash sh dd cat sync xz curl chroot mount umount setsid; do
+for b in bash sh dd cat sync xz curl chroot mount umount setsid sleep; do
   p="$(command -v "$b")"; [ -e "$R$p" ] || { echo "!! failed to stage: $b — aborting, SD untouched"; exit 1; }
 done
 echo "All tools staged OK."
+
+# the final stage, run from RAM after the pivot. Once the card is written it
+# kills sshd so the SSH connection closes cleanly (the client exits right away
+# instead of hanging until it times out), then reboots.
+cat > "$R/flash.sh" <<'EOS'
+curl -fsSL "$1" | xz -dc | dd of=/dev/mmcblk0 bs=4M conv=fsync status=progress
+sync
+echo ">>> DONE — rebooting <<<"
+for p in /proc/[0-9]*; do
+  read -r c 2>/dev/null < "$p/comm" || continue
+  case "$c" in sshd*) kill "${p#/proc/}" 2>/dev/null ;; esac
+done
+sleep 2   # let the TCP close reach the client before the hard reboot
+echo b > /proc/sysrq-trigger
+EOS
 
 BASH="$(command -v bash)"
 mount --make-rprivate /
@@ -46,5 +61,5 @@ exec chroot . "$BASH" -c '
   umount -l /oldroot
   echo 1 > /proc/sys/kernel/sysrq
   echo ">>> STREAMING TO CARD — do not power off <<<"
-  setsid sh -c "curl -fsSL \"'"$IMG_URL"'\" | xz -dc | dd of=/dev/mmcblk0 bs=4M conv=fsync status=progress; sync; echo b > /proc/sysrq-trigger" < /dev/null
+  setsid sh /flash.sh "'"$IMG_URL"'" < /dev/null
 '
