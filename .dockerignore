@@ -1,8 +1,13 @@
-# Keep the build context tiny — only serve-image.js and reflash.sh are copied.
-# OS images can be gigabytes; never send them to the daemon or bake them in.
+# Keep the build context tiny — only the server, reflash.sh and the UI source
+# are copied. OS images can be gigabytes; never send them to the daemon.
 *.img
 *.img.xz
 *.bak
+images/
+archive/
+scripts.json
+ui/node_modules
+ui/dist
 
 .git
 .gitignore

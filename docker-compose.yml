@@ -1,8 +1,9 @@
-# Convenience wrapper. Set IMAGE (and optionally IMAGE_DIR / PORT), then:
-#   IMAGE=rpi-image.img.xz docker compose up
+# Convenience wrapper. Optionally set IMAGE_DIR / PORT / REFLASHER_PASSWORD /
+# REFLASHER_PUBLIC_URL, then:
+#   docker compose up
 #
-# The image directory is mounted read-only at /data and the filename is passed
-# to serve-image.js as its positional argument.
+# The image directory is mounted read-write at /data so the admin UI can
+# upload, archive and delete images and save script assignments.
 services:
   reflasher:
     build: .
@@ -11,5 +12,7 @@ services:
     ports:
       - "${PORT:-8080}:8080"         # host:container — Pis curl the host port
     volumes:
-      - "${IMAGE_DIR:-.}:/data:ro"   # directory holding your .img.xz
-    command: ["${IMAGE:?set IMAGE=<file>.img.xz}"]
+      - "${IMAGE_DIR:-./images}:/data"
+    environment:
+      - REFLASHER_PASSWORD=${REFLASHER_PASSWORD:-}
+      - REFLASHER_PUBLIC_URL=${REFLASHER_PUBLIC_URL:-}

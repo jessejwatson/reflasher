@@ -1,4 +1,9 @@
 *.img
 *.img.xz
+images/
+archive/
+scripts.json
+ui/node_modules
+ui/dist
 
 .DS_Store
